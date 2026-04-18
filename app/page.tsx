@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 // ============================================
 // TIPOS
@@ -29,11 +31,17 @@ type TabActiva = "chat" | "entrenamiento";
 
 const URL_API = "http://localhost:8000";
 
-async function enviarMensajeAPI(mensaje: string): Promise<string> {
+// Tipo para el historial que se envía al backend
+type MensajeHistorial = { rol: "usuario" | "asistente"; contenido: string };
+
+async function enviarMensajeAPI(
+  mensaje: string,
+  historial: MensajeHistorial[]
+): Promise<string> {
   const respuesta = await fetch(`${URL_API}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ mensaje }),
+    body: JSON.stringify({ mensaje, historial }),
   });
   if (!respuesta.ok) {
     const error = await respuesta.json().catch(() => ({}));
@@ -269,6 +277,108 @@ function PanelEntrenamiento({
 // COMPONENTE: BURBUJA DE MENSAJE
 // ============================================
 
+// ============================================
+// COMPONENTE: RENDERIZADOR DE CONTENIDO CON CÓDIGO
+// ============================================
+// Parsea el texto buscando bloques ```lenguaje ... ```.
+// Los renderiza con highlighting tipo terminal; el texto
+// normal se muestra como siempre.
+
+type Segmento =
+  | { tipo: "texto"; contenido: string }
+  | { tipo: "codigo"; lenguaje: string; contenido: string };
+
+function parsearContenido(texto: string): Segmento[] {
+  const segmentos: Segmento[] = [];
+  // Detecta ``` opcionalmente seguido del nombre del lenguaje
+  const regex = /```(\w*)\n?([\s\S]*?)```/g;
+  let lastIndex = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = regex.exec(texto)) !== null) {
+    // Texto antes del bloque de código
+    if (match.index > lastIndex) {
+      segmentos.push({ tipo: "texto", contenido: texto.slice(lastIndex, match.index) });
+    }
+    segmentos.push({
+      tipo: "codigo",
+      lenguaje: match[1] || "text",
+      contenido: match[2].trimEnd(),
+    });
+    lastIndex = regex.lastIndex;
+  }
+
+  // Texto restante después del último bloque
+  if (lastIndex < texto.length) {
+    segmentos.push({ tipo: "texto", contenido: texto.slice(lastIndex) });
+  }
+
+  return segmentos;
+}
+
+function ContenidoMensaje({ texto, esError }: { texto: string; esError: boolean }) {
+  const segmentos = parsearContenido(texto);
+
+  return (
+    <div className="space-y-2">
+      {segmentos.map((seg, i) =>
+        seg.tipo === "codigo" ? (
+          <div key={i} className="relative overflow-hidden rounded-lg border border-white/10">
+            {/* Barra superior tipo terminal */}
+            <div className="flex items-center justify-between bg-[#282c34] px-4 py-1.5">
+              <span className="text-[11px] font-mono text-gray-400">{seg.lenguaje || "code"}</span>
+              <CopiarBoton codigo={seg.contenido} />
+            </div>
+            <SyntaxHighlighter
+              language={seg.lenguaje || "text"}
+              style={oneDark}
+              customStyle={{
+                margin: 0,
+                borderRadius: 0,
+                fontSize: "13px",
+                padding: "1rem 1.25rem",
+              }}
+              showLineNumbers
+              lineNumberStyle={{ color: "#4b5263", minWidth: "2em" }}
+            >
+              {seg.contenido}
+            </SyntaxHighlighter>
+          </div>
+        ) : (
+          <p
+            key={i}
+            className={`whitespace-pre-wrap text-[15px] leading-relaxed ${
+              esError ? "text-red-600" : "text-foreground"
+            }`}
+          >
+            {seg.contenido}
+          </p>
+        )
+      )}
+    </div>
+  );
+}
+
+function CopiarBoton({ codigo }: { codigo: string }) {
+  const [copiado, setCopiado] = useState(false);
+
+  const copiar = async () => {
+    await navigator.clipboard.writeText(codigo);
+    setCopiado(true);
+    setTimeout(() => setCopiado(false), 2000);
+  };
+
+  return (
+    <button
+      onClick={copiar}
+      className="text-[11px] font-mono text-gray-400 transition-colors hover:text-white"
+    >
+      {copiado ? "✔ Copiado" : "Copiar"}
+    </button>
+  );
+}
+
+// ============================================
 function MensajeChat({
   mensaje,
   preguntaAnterior,
@@ -303,13 +413,7 @@ function MensajeChat({
         <LogoOllama />
       </div>
       <div className="min-w-0 flex-1">
-        <p
-          className={`whitespace-pre-wrap text-[15px] leading-relaxed ${
-            esError ? "text-red-600" : "text-foreground"
-          }`}
-        >
-          {mensaje.contenido}
-        </p>
+        <ContenidoMensaje texto={mensaje.contenido} esError={esError} />
         {!esError && preguntaAnterior && (
           <PanelEntrenamiento
             pregunta={preguntaAnterior}
@@ -406,7 +510,7 @@ function BarraEntrada({
       <p className="mx-auto mt-2 max-w-3xl text-center text-xs text-muted-foreground">
         Conectado a{" "}
         <span className="font-medium">localhost:8000</span>
-        {" · "}Nerdbot · phi3
+        {" · "}Nerdbot · qwen2.5:3b
       </p>
     </div>
   );
@@ -442,7 +546,9 @@ function TabDatosEntrenamiento() {
     if (!confirm("¿Eliminar este dato de entrenamiento?")) return;
     try {
       await eliminarDatoEntrenamiento(indice);
-      setDatos((prev) => prev.filter((_, i) => i !== indice));
+      // Recargamos desde el servidor para que los índices del backend
+      // y el estado del frontend estén siempre sincronizados.
+      await cargarDatos();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Error al eliminar");
     }
@@ -502,7 +608,9 @@ function TabDatosEntrenamiento() {
       ) : (
         <div className="flex-1 overflow-y-auto divide-y divide-border/50">
           {datos.map((dato, indice) => (
-            <div key={indice} className="px-4 py-4 hover:bg-muted/30 transition-colors">
+            // Usamos fecha+pregunta como key estable en lugar del índice
+            // del array, que puede cambiar al eliminar items.
+            <div key={`${dato.fecha}-${dato.pregunta.slice(0, 20)}`} className="px-4 py-4 hover:bg-muted/30 transition-colors">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0 flex-1">
                   <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -582,7 +690,14 @@ export default function Pagina() {
     setCargando(true);
 
     try {
-      const textoRespuesta = await enviarMensajeAPI(prompt);
+      // Convertir el historial actual al formato que espera el backend.
+      // Se excluyen mensajes de error y el mensaje actual (que aún
+      // no está en el estado, ya que setState es asíncrono).
+      const historialParaAPI: MensajeHistorial[] = mensajes
+        .filter((m) => m.tipo !== "error")
+        .map((m) => ({ rol: m.remitente, contenido: m.contenido }));
+
+      const textoRespuesta = await enviarMensajeAPI(prompt, historialParaAPI);
       const idRespuesta = ++contadorId.current;
       setMensajes((prev) => [
         ...prev,
