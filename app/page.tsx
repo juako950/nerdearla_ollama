@@ -14,24 +14,11 @@ type Mensaje = {
 
 function LogoOllama() {
   return (
-    <svg
-      viewBox="0 0 1024 1024"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className="h-8 w-8"
-    >
-      <path
-        d="M512 96C282.2 96 96 282.2 96 512s186.2 416 416 416 416-186.2 416-416S741.8 96 512 96zm0 64c194.4 0 352 157.6 352 352S706.4 864 512 864 160 706.4 160 512s157.6-352 352-352z"
-        fill="currentColor"
-      />
-      <ellipse cx="380" cy="420" rx="48" ry="56" fill="currentColor" />
-      <ellipse cx="644" cy="420" rx="48" ry="56" fill="currentColor" />
-      <path
-        d="M512 680c-77.3 0-140-31.3-140-70h280c0 38.7-62.7 70-140 70z"
-        fill="currentColor"
-      />
-      <ellipse cx="512" cy="560" rx="24" ry="20" fill="currentColor" />
-    </svg>
+    <img
+      src="/ollama.jpg"
+      alt="Ollama"
+      className="h-8 w-8 rounded-full object-cover"
+    />
   );
 }
 
