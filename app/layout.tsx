@@ -8,7 +8,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Ollama Chat",
+  title: "Nerdbot",
   description: "Interfaz minimalista para modelos de lenguaje locales",
 };
 

@@ -81,7 +81,7 @@ function LogoOllama() {
   return (
     <img
       src="/ollama.jpg"
-      alt="Ollama"
+      alt="Nerdbot"
       className="h-8 w-8 rounded-full object-cover"
     />
   );
@@ -406,7 +406,7 @@ function BarraEntrada({
       <p className="mx-auto mt-2 max-w-3xl text-center text-xs text-muted-foreground">
         Conectado a{" "}
         <span className="font-medium">localhost:8000</span>
-        {" · "}Ollama · phi3
+        {" · "}Nerdbot · phi3
       </p>
     </div>
   );
@@ -616,7 +616,7 @@ export default function Pagina() {
         <div className="flex items-center gap-3">
           <LogoOllama />
           <div className="flex items-center gap-2">
-            <span className="text-sm font-medium text-foreground">Ollama</span>
+            <span className="text-sm font-medium text-foreground">Nerdbot</span>
             <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
               Local
             </span>
