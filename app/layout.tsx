@@ -10,6 +10,9 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Nerdbot",
   description: "Interfaz minimalista para modelos de lenguaje locales",
+  icons: {
+    icon: "/ollama.jpg",
+  },
 };
 
 export const viewport: Viewport = {
